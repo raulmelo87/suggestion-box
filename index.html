@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Caixa de Sugestões</title>
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+  <div class="container mt-5">
+    <h1 class="mb-4">Suggestion Box</h1>
+    
+    <!-- Área de Login/Logout -->
+    <div id="user-auth">
+      <button id="login-btn" class="btn btn-primary">Login com Google</button>
+      <button id="logout-btn" class="btn btn-secondary d-none">Logout</button>
+    </div>
+
+    <!-- Área para enviar sugestões -->
+    <div id="suggestion-form" class="mt-4 d-none">
+      <div class="form-group">
+        <label for="suggestion-input">Digite sua sugestão:</label>
+        <textarea id="suggestion-input" class="form-control" rows="3"></textarea>
+      </div>
+      <button id="send-suggestion-btn" class="btn btn-success">Enviar Sugestão</button>
+    </div>
+
+    <!-- Lista de sugestões -->
+    <div id="suggestions-list" class="mt-5">
+      <h3>Sugestões:</h3>
+      <ul id="suggestions-ul" class="list-group">
+        <!-- As sugestões serão inseridas aqui -->
+      </ul>      
+    </div>
+  </div>
+
+  <!-- Bootstrap JS e dependências -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+  <!-- Configuração e lógica da aplicação utilizando módulos via CDN -->
+  <script type="module">
+    // Importar as funções necessárias do Firebase a partir da CDN
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-analytics.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+
+    // Configuração do Firebase (substitua com os dados do seu projeto)
+    const firebaseConfig = {
+      apiKey: "AIzaSyDZjcmXmZXz3s_WkRiIkHDQwgn9LHXJdiw",
+      authDomain: "projeto-caixa-de-sugestoes.firebaseapp.com",
+      projectId: "projeto-caixa-de-sugestoes",
+      storageBucket: "projeto-caixa-de-sugestoes.firebasestorage.app",
+      messagingSenderId: "759896890338",
+      appId: "1:759896890338:web:2cedd682c5020b702b77bb",
+      measurementId: "G-JT15F9ED7S"
+    };
+
+    // Inicializa o Firebase
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Elementos da página
+    const loginBtn = document.getElementById('login-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const suggestionForm = document.getElementById('suggestion-form');
+    const sendSuggestionBtn = document.getElementById('send-suggestion-btn');
+    const suggestionInput = document.getElementById('suggestion-input');
+    const suggestionsUl = document.getElementById('suggestions-ul');
+
+    // Função para renderizar as sugestões armazenadas no Firestore
+    async function renderSuggestions() {
+      const q = query(collection(db, 'sugestoes'), orderBy('timestamp', 'desc'));
+      const querySnapshot = await getDocs(q);
+      suggestionsUl.innerHTML = '';
+      querySnapshot.forEach((doc) => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item';
+        li.textContent = doc.data().texto;
+        suggestionsUl.appendChild(li);
+      });
+    }
+
+    // Monitorar o estado de autenticação do usuário
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        loginBtn.classList.add('d-none');
+        logoutBtn.classList.remove('d-none');
+        suggestionForm.classList.remove('d-none');
+        renderSuggestions();
+      } else {
+        loginBtn.classList.remove('d-none');
+        logoutBtn.classList.add('d-none');
+        suggestionForm.classList.add('d-none');
+      }
+    });
+
+    // Login com Google
+    loginBtn.addEventListener('click', async () => {
+      const provider = new GoogleAuthProvider();
+      try {
+        const result = await signInWithPopup(auth, provider);
+        console.log('Usuário logado:', result.user);
+        renderSuggestions();
+      } catch (error) {
+        console.error('Erro no login:', error);
+      }
+    });
+
+    // Logout
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        await signOut(auth);
+        console.log('Usuário deslogado');
+      } catch (error) {
+        console.error('Erro ao deslogar:', error);
+      }
+    });
+
+    // Enviar sugestão para o Firestore
+    sendSuggestionBtn.addEventListener('click', async () => {
+      const texto = suggestionInput.value.trim();
+      if (texto) {
+        try {
+          await addDoc(collection(db, 'sugestoes'), {
+            texto,
+            timestamp: serverTimestamp(),
+            uid: auth.currentUser.uid
+          });
+          suggestionInput.value = '';
+          renderSuggestions();
+        } catch (error) {
+          console.error('Erro ao enviar sugestão:', error);
+        }
+      } else {
+        alert('Por favor, digite uma sugestão.');
+      }
+    });
+
+    // Carregar as sugestões ao iniciar a página
+    renderSuggestions();
+  </script>
+</body>
+</html>
